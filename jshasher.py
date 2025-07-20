@@ -6,6 +6,8 @@ import shutil
 import logging
 from colorama import Fore, Style, init
 from hashid import HashID
+import re
+import hashlib
 
 init(autoreset=True)
 logging.basicConfig(filename='crack.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -70,6 +72,28 @@ WORDLISTS = {
     'unix_users.txt': '/usr/share/metasploit-framework/data/wordlists/unix_users.txt',
     'xato-net-10-million.txt': '/usr/share/seclists/Passwords/xato-net-10-million-passwords-100000.txt',
     'scraped-JWT-secrets.txt': '/usr/share/seclists/Passwords/scraped-JWT-secrets.txt',
+    'common-passwords.txt': '/usr/share/seclists/Passwords/Common-Credentials/10-million-password-list-top-1000000.txt',
+    'darkweb2017-top10000.txt': '/usr/share/seclists/Passwords/darkweb2017-top10000.txt',
+}
+
+# John the Ripper rule files
+JOHN_RULES = {
+    'best64': '/usr/share/john/rules/best64.rule',
+    'dive': '/usr/share/john/rules/dive.rule', 
+    'jumbo': '/usr/share/john/rules/jumbo.rule',
+    'single': '/usr/share/john/rules/single.rule',
+    'wordlist': '/usr/share/john/rules/wordlist.rule',
+}
+
+# Smart wordlist recommendations based on hash type
+HASH_TYPE_WORDLISTS = {
+    'NTLM': ['rockyou.txt', 'common-passwords.txt'],
+    'MD5': ['rockyou.txt', 'xato-net-10-million.txt'],
+    'SHA-1': ['rockyou.txt', 'darkweb2017-top10000.txt'],
+    'SHA-256': ['rockyou.txt', 'common-passwords.txt'],
+    'bcrypt': ['rockyou.txt', 'common-passwords.txt'],
+    'MySQL5': ['unix_users.txt', 'rockyou.txt'],
+    'default': ['rockyou.txt', 'common-passwords.txt']
 }
 
 HASH_FORMATS = {
@@ -88,6 +112,83 @@ HASH_FORMATS = {
 
 def colored(msg, color=Fore.CYAN):
     return f"{color}{msg}{Style.RESET_ALL}"
+
+def advanced_hash_detection(hash_content):
+    """Advanced hash detection using multiple methods"""
+    hash_content = hash_content.strip()
+    
+    # Pattern-based detection
+    patterns = {
+        'MD5': r'^[a-f0-9]{32}$',
+        'SHA-1': r'^[a-f0-9]{40}$', 
+        'SHA-256': r'^[a-f0-9]{64}$',
+        'SHA-512': r'^[a-f0-9]{128}$',
+        'NTLM': r'^[a-f0-9]{32}$',
+        'bcrypt': r'^\$2[ayb]\$.{56}$',
+        'MySQL5': r'^\*[A-F0-9]{40}$',
+        'DES': r'^[a-zA-Z0-9./]{13}$',
+        'Blowfish': r'^\$2[ayb]\$[0-9]{2}\$[A-Za-z0-9./]{53}$',
+    }
+    
+    detected = []
+    for hash_type, pattern in patterns.items():
+        if re.match(pattern, hash_content, re.IGNORECASE):
+            detected.append(hash_type)
+    
+    return detected
+
+def validate_hash_format(hash_content, expected_format):
+    """Validate hash against expected format"""
+    try:
+        if expected_format in ['MD5', 'NTLM'] and len(hash_content.strip()) == 32:
+            return True
+        elif expected_format == 'SHA-1' and len(hash_content.strip()) == 40:
+            return True
+        elif expected_format == 'SHA-256' and len(hash_content.strip()) == 64:
+            return True
+        elif expected_format == 'SHA-512' and len(hash_content.strip()) == 128:
+            return True
+        elif expected_format == 'bcrypt' and hash_content.startswith('$2'):
+            return True
+        return False
+    except:
+        return False
+
+def get_smart_wordlist_recommendations(hash_type):
+    """Get smart wordlist recommendations based on detected hash type"""
+    return HASH_TYPE_WORDLISTS.get(hash_type, HASH_TYPE_WORDLISTS['default'])
+
+def merge_wordlists(wordlist_paths, output_path):
+    """Merge multiple wordlists and remove duplicates"""
+    print(colored(f"[*] Merging {len(wordlist_paths)} wordlists...", Fore.CYAN))
+    
+    unique_passwords = set()
+    total_lines = 0
+    
+    for wordlist in wordlist_paths:
+        if os.path.isfile(wordlist):
+            try:
+                with open(wordlist, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        password = line.strip()
+                        if password and len(password) <= 256:  # Reasonable length limit
+                            unique_passwords.add(password)
+                            total_lines += 1
+            except Exception as e:
+                print(colored(f"[!] Error reading {wordlist}: {e}", Fore.RED))
+    
+    # Write merged wordlist
+    try:
+        with open(output_path, 'w', encoding='utf-8') as f:
+            for password in sorted(unique_passwords):
+                f.write(f"{password}\n")
+        
+        print(colored(f"[✔] Merged wordlist created: {output_path}", Fore.GREEN))
+        print(colored(f"[*] Original lines: {total_lines}, Unique passwords: {len(unique_passwords)}", Fore.YELLOW))
+        return output_path
+    except Exception as e:
+        print(colored(f"[!] Error creating merged wordlist: {e}", Fore.RED))
+        return None
 
 def display_supported_formats():
     print()
@@ -167,8 +268,8 @@ def extract_hash(file_path, output_file):
 
 def detect_hash_type(hash_file):
     print()
-    print(colored("[#] Hash format detection options: (NOT FULLY ACCURATE + USE IF NECESSARY)", Fore.CYAN))
-    print("1) Auto-detect hash format")
+    print(colored("[#] Enhanced Hash Detection System (Not Guaranteed to work *SKIP if possible*)", Fore.CYAN))
+    print("1) Auto-detect hash format (Multiple detection methods)")
     print("2) Skip detection and input format manually")
     print("3) Skip detection (use tool defaults)")
     
@@ -182,12 +283,10 @@ def detect_hash_type(hash_file):
     print()
     
     if detection_choice == '3':
-        # Skip detection entirely, return None for both formats
         print(colored("[*] Skipping hash format detection. Using tool defaults.\n", Fore.YELLOW))
         return None, None
     
     elif detection_choice == '2':
-        # Manual input only
         print(colored("[*] Manual format input:", Fore.CYAN))
         john_fmt = input(colored("Enter John format (e.g., raw-md5) or leave blank: ")).strip()
         hc_mode = input(colored("Enter Hashcat mode (e.g., 0 for MD5) or leave blank: ")).strip()
@@ -195,19 +294,63 @@ def detect_hash_type(hash_file):
         return john_fmt if john_fmt else None, hc_mode if hc_mode else None
     
     else:
-        # Auto-detection (option 1)
+        # Enhanced auto-detection
         with open(hash_file, 'r') as f:
             content = f.readline().strip()
-        hashid = HashID()
-        results = list(hashid.identifyHash(content))
         
-        if results:
+        print(colored("[*] Running multiple detection methods...", Fore.CYAN))
+        
+        # Method 1: Pattern-based detection
+        pattern_results = advanced_hash_detection(content)
+        print(colored(f"[*] Pattern detection found: {', '.join(pattern_results) if pattern_results else 'None'}", Fore.YELLOW))
+        
+        # Method 2: HashID detection
+        hashid = HashID()
+        hashid_results = list(hashid.identifyHash(content))
+        print(colored(f"[*] HashID detected {len(hashid_results)} possible types", Fore.YELLOW))
+        
+        # Combine and prioritize results
+        all_results = []
+        
+        # Add pattern results (higher priority)
+        for hash_type in pattern_results:
+            john_fmt, hc_mode = HASH_FORMATS.get(hash_type, (None, None))
+            all_results.append({
+                'name': hash_type,
+                'source': 'Pattern',
+                'confidence': 'High',
+                'john_fmt': john_fmt,
+                'hc_mode': hc_mode
+            })
+        
+        # Add HashID results
+        for h in hashid_results[:3]:  # Limit to top 3
+            name = h['name']
+            john_fmt, hc_mode = HASH_FORMATS.get(name, (None, None))
+            # Avoid duplicates
+            if not any(r['name'] == name for r in all_results):
+                all_results.append({
+                    'name': name,
+                    'source': 'HashID',
+                    'confidence': 'Medium',
+                    'john_fmt': john_fmt,
+                    'hc_mode': hc_mode
+                })
+        
+        if all_results:
             print()
-            print(colored("[*] Possible hash types detected:", Fore.CYAN))
-            for idx, h in enumerate(results[:5], 1):
-                name = h['name']
-                john_fmt, hc_mode = HASH_FORMATS.get(name, (None, None))
-                print(colored(f" {idx}. {name} | John format: {john_fmt or 'N/A'} | Hashcat mode: {hc_mode or 'N/A'}", Fore.YELLOW))
+            print(colored("[*] Combined detection results:", Fore.CYAN))
+            for idx, result in enumerate(all_results[:5], 1):
+                confidence_color = Fore.GREEN if result['confidence'] == 'High' else Fore.YELLOW
+                print(colored(f" {idx}. {result['name']} [{result['source']}] ({result['confidence']} confidence)", confidence_color))
+                print(f"    John: {result['john_fmt'] or 'N/A'} | Hashcat: {result['hc_mode'] or 'N/A'}")
+            
+            # Hash validation
+            if all_results:
+                top_result = all_results[0]
+                is_valid = validate_hash_format(content, top_result['name'])
+                validation_msg = "✓ Valid" if is_valid else "⚠ Validation failed"
+                print(colored(f"\n[*] Hash validation for {top_result['name']}: {validation_msg}", Fore.CYAN))
 
             while True:
                 print()
@@ -220,19 +363,19 @@ def detect_hash_type(hash_file):
                 elif choice.lower() == 's':
                     print(colored("[*] Skipping format selection. Using tool defaults.\n", Fore.YELLOW))
                     return None, None
-                elif choice.isdigit() and 1 <= int(choice) <= len(results[:5]):
-                    name = results[int(choice)-1]['name']
-                    john_fmt, hc_mode = HASH_FORMATS.get(name, (None, None))
+                elif choice.isdigit() and 1 <= int(choice) <= len(all_results):
+                    selected = all_results[int(choice)-1]
+                    john_fmt, hc_mode = selected['john_fmt'], selected['hc_mode']
                     if not john_fmt and not hc_mode:
                         print(colored("[!] No known John format or Hashcat mode for this hash type.\nPlease input manually.\n", Fore.RED))
                     else:
-                        print(colored(f"[✔] Selected John format: {john_fmt}, Hashcat mode: {hc_mode}\n", Fore.GREEN))
+                        print(colored(f"[✔] Selected: {selected['name']} | John: {john_fmt} | Hashcat: {hc_mode}\n", Fore.GREEN))
                         return john_fmt, hc_mode
                 else:
                     print(colored("[!] Invalid choice. Try again.\n", Fore.RED))
         else:
             print()
-            print(colored("[!] Could not detect hash type.", Fore.RED))
+            print(colored("[!] Could not detect hash type with any method.", Fore.RED))
             john_fmt = input(colored("Enter John format (leave blank if using Hashcat): ")).strip()
             hc_mode = input(colored("Enter Hashcat mode (leave blank if using John): ")).strip()
             print()
@@ -294,11 +437,82 @@ def crack_with_john(hash_file, wordlist, threads, john_fmt):
         return
 
     print()
-    print(colored("[*] Starting cracking with John (resume supported)...\n", Fore.CYAN))
+    print(colored("🔧 John the Ripper Attack Options:", Fore.CYAN))
+    print("1) Wordlist attack only")
+    print("2) Wordlist + Rules attack")
+    print("3) Hybrid attack (wordlist + mask)")
+    
+    while True:
+        attack_choice = input(colored("Choose attack type [1/2/3]: ")).strip()
+        if attack_choice in ['1', '2', '3']:
+            break
+        print(colored("[!] Invalid choice. Enter 1, 2, or 3.\n", Fore.RED))
+    
+    base_cmd = ['john']
+    fork_option = ['--fork=' + str(threads)] if threads > 1 else []
+    format_option = [f'--format={john_fmt}'] if john_fmt else []
+    
+    if attack_choice == '2':
+        # Rule-based attack
+        print()
+        print(colored("📋 Available Rule Files:", Fore.CYAN))
+        available_rules = []
+        for i, (name, path) in enumerate(JOHN_RULES.items(), 1):
+            exists = "✓" if os.path.isfile(path) else "✗"
+            print(f" {i}. {name} -> {path} [{exists}]")
+            if os.path.isfile(path):
+                available_rules.append((name, path))
+        
+        if available_rules:
+            print(f" {len(available_rules)+1}. Use all available rules")
+            print(f" {len(available_rules)+2}. Custom rule file")
+            
+            while True:
+                try:
+                    rule_choice = int(input(colored(f"Choose rule [1-{len(available_rules)+2}]: ")))
+                    if 1 <= rule_choice <= len(available_rules):
+                        rule_name, rule_path = available_rules[rule_choice - 1]
+                        print(colored(f"[*] Using rule: {rule_name}", Fore.YELLOW))
+                        rule_option = [f'--rules={rule_path}']
+                        break
+                    elif rule_choice == len(available_rules) + 1:
+                        print(colored("[*] Using all available rules sequentially", Fore.YELLOW))
+                        rule_option = ['--rules']
+                        break
+                    elif rule_choice == len(available_rules) + 2:
+                        custom_rule = prompt_file("Enter path to custom rule file: ")
+                        rule_option = [f'--rules={custom_rule}']
+                        break
+                except ValueError:
+                    pass
+                print(colored("[!] Invalid choice. Try again.\n", Fore.RED))
+        else:
+            print(colored("[!] No rule files found, using default rules.", Fore.YELLOW))
+            rule_option = ['--rules']
+        
+        cmd = base_cmd + ['--wordlist=' + wordlist] + rule_option + format_option + fork_option + [hash_file]
+    
+    elif attack_choice == '3':
+        # Hybrid attack
+        print()
+        mask = input(colored("Enter mask pattern (e.g., ?d?d?d for 3 digits): ")).strip()
+        if mask:
+            print(colored(f"[*] Using hybrid attack: wordlist + mask '{mask}'", Fore.YELLOW))
+            cmd = base_cmd + ['--wordlist=' + wordlist, f'--mask={mask}'] + format_option + fork_option + [hash_file]
+        else:
+            print(colored("[!] No mask provided, falling back to wordlist attack.", Fore.YELLOW))
+            cmd = base_cmd + ['--wordlist=' + wordlist] + format_option + fork_option + [hash_file]
+    
+    else:
+        # Standard wordlist attack
+        cmd = base_cmd + ['--wordlist=' + wordlist] + format_option + fork_option + [hash_file]
+
+    print()
+    print(colored("[*] Starting John the Ripper attack (resume supported)...", Fore.CYAN))
+    print(colored(f"[*] Command: {' '.join(cmd)}", Fore.YELLOW))
+    
     try:
-        fork_option = ['--fork=' + str(threads)] if threads > 1 else []
-        format_option = [f'--format={john_fmt}'] if john_fmt else []
-        subprocess.run(['john', '--wordlist=' + wordlist] + format_option + fork_option + [hash_file], check=True)
+        subprocess.run(cmd, check=True)
         output = subprocess.check_output(['john', '--show'] + format_option + [hash_file])
         print(colored("\n[+] Cracked Password(s):", Fore.GREEN))
         highlight_passwords(output.decode())
@@ -378,30 +592,108 @@ def extract_hash_from_shadow():
         print(colored(f"[!] Failed to extract hashes from shadow file: {e}\n", Fore.RED))
         return None
 
-def choose_wordlist():
+def choose_wordlist(detected_hash_type=None):
     print()
-    print(colored("📚 Available Wordlists:", Fore.CYAN))
-    for i, (name, path) in enumerate(WORDLISTS.items(), 1):
-        print(f" {i}. {name} -> {path}")
-    print(f" {len(WORDLISTS)+1}. Custom path")
-
+    print(colored("📚 Smart Wordlist Selection:", Fore.CYAN))
+    
+    # Show smart recommendations if hash type is known
+    if detected_hash_type:
+        recommended = get_smart_wordlist_recommendations(detected_hash_type)
+        print(colored(f"💡 Recommended for {detected_hash_type}: {', '.join(recommended)}", Fore.GREEN))
+        print()
+    
+    print("Available options:")
+    print("1) Use individual wordlist")
+    print("2) Merge multiple wordlists")
+    print("3) Smart selection (recommended for detected hash type)")
+    
     while True:
+        print()
+        wordlist_choice = input(colored("Choose option [1/2/3]: ")).strip()
+        if wordlist_choice in ['1', '2', '3']:
+            break
+        print(colored("[!] Invalid choice. Enter 1, 2, or 3.\n", Fore.RED))
+    
+    if wordlist_choice == '3' and detected_hash_type:
+        # Smart selection
+        recommended = get_smart_wordlist_recommendations(detected_hash_type)
+        wordlist_paths = []
+        
+        for rec in recommended:
+            path = WORDLISTS.get(rec)
+            if path and os.path.isfile(path):
+                wordlist_paths.append(path)
+        
+        if len(wordlist_paths) > 1:
+            merged_path = f"merged_wordlist_{detected_hash_type.lower().replace('-', '_')}.txt"
+            return merge_wordlists(wordlist_paths, merged_path)
+        elif len(wordlist_paths) == 1:
+            print(colored(f"[✔] Using recommended wordlist: {wordlist_paths[0]}\n", Fore.GREEN))
+            return wordlist_paths[0]
+        else:
+            print(colored("[!] No recommended wordlists found, falling back to manual selection.", Fore.RED))
+            wordlist_choice = '1'
+    
+    if wordlist_choice == '2':
+        # Merge multiple wordlists
+        print(colored("Select wordlists to merge:", Fore.CYAN))
+        for i, (name, path) in enumerate(WORDLISTS.items(), 1):
+            exists = "✓" if os.path.isfile(path) else "✗"
+            print(f" {i}. {name} -> {path} [{exists}]")
+        
+        print()
+        selected_indices = input(colored("Enter wordlist numbers separated by commas (e.g., 1,2,3): ")).strip()
+        
         try:
-            print()
-            choice = int(input(colored("Choose wordlist [1-{}]: ".format(len(WORDLISTS)+1))))
-            if 1 <= choice <= len(WORDLISTS):
-                selected = list(WORDLISTS.values())[choice - 1]
-                if os.path.isfile(selected):
-                    print(colored(f"[✔] Selected wordlist: {selected}\n", Fore.GREEN))
-                    return selected
-                else:
-                    print(colored("[!] Selected wordlist file does not exist.\n", Fore.RED))
-            elif choice == len(WORDLISTS)+1:
-                path = prompt_file("Enter full path to custom wordlist: ")
-                return path
-        except Exception:
-            pass
-        print(colored("[!] Invalid choice. Try again.\n", Fore.RED))
+            indices = [int(x.strip()) for x in selected_indices.split(',')]
+            wordlist_paths = []
+            wordlist_items = list(WORDLISTS.items())
+            
+            for idx in indices:
+                if 1 <= idx <= len(wordlist_items):
+                    name, path = wordlist_items[idx - 1]
+                    if os.path.isfile(path):
+                        wordlist_paths.append(path)
+                        print(colored(f"[✔] Added: {name}", Fore.GREEN))
+                    else:
+                        print(colored(f"[!] File not found: {name}", Fore.RED))
+            
+            if wordlist_paths:
+                merged_path = "merged_custom_wordlist.txt"
+                return merge_wordlists(wordlist_paths, merged_path)
+            else:
+                print(colored("[!] No valid wordlists selected, falling back to manual selection.", Fore.RED))
+                wordlist_choice = '1'
+        except ValueError:
+            print(colored("[!] Invalid input format, falling back to manual selection.", Fore.RED))
+            wordlist_choice = '1'
+    
+    if wordlist_choice == '1':
+        # Individual wordlist selection
+        print()
+        print(colored("📚 Available Wordlists:", Fore.CYAN))
+        for i, (name, path) in enumerate(WORDLISTS.items(), 1):
+            exists = "✓" if os.path.isfile(path) else "✗"
+            print(f" {i}. {name} -> {path} [{exists}]")
+        print(f" {len(WORDLISTS)+1}. Custom path")
+
+        while True:
+            try:
+                print()
+                choice = int(input(colored("Choose wordlist [1-{}]: ".format(len(WORDLISTS)+1))))
+                if 1 <= choice <= len(WORDLISTS):
+                    selected = list(WORDLISTS.values())[choice - 1]
+                    if os.path.isfile(selected):
+                        print(colored(f"[✔] Selected wordlist: {selected}\n", Fore.GREEN))
+                        return selected
+                    else:
+                        print(colored("[!] Selected wordlist file does not exist.\n", Fore.RED))
+                elif choice == len(WORDLISTS)+1:
+                    path = prompt_file("Enter full path to custom wordlist: ")
+                    return path
+            except Exception:
+                pass
+            print(colored("[!] Invalid choice. Try again.\n", Fore.RED))
 
 def main():
     print()
@@ -461,10 +753,19 @@ def main():
         if tool not in ['john', 'hashcat']:
             print(colored("[!] Invalid input. Choose 'john' or 'hashcat'.\n", Fore.RED))
 
-    wordlist = choose_wordlist()
-    threads = get_cpu_threads()
-
     john_fmt, hc_mode = detect_hash_type(hash_output)
+    
+    # Extract detected hash type for smart wordlist selection
+    detected_type = None
+    if john_fmt:
+        # Map john format back to hash type
+        for hash_type, (j_fmt, h_mode) in HASH_FORMATS.items():
+            if j_fmt == john_fmt:
+                detected_type = hash_type
+                break
+    
+    wordlist = choose_wordlist(detected_type)
+    threads = get_cpu_threads()
 
     if tool == 'john':
         crack_with_john(hash_output, wordlist, threads, john_fmt)
