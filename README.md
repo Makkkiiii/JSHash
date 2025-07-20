@@ -355,30 +355,6 @@ Both John the Ripper and Hashcat support resuming interrupted sessions automatic
 - Forensic analysis of encrypted containers
 - Security research and education
 
-### 🏢 **Enterprise Security**
-- Password policy compliance testing
-- Recovery of lost archive passwords
-- Security audit of legacy systems
-- Training and awareness programs
-
-## ⚡ Performance Optimizations
-
-### **Speed Enhancements**
-- **Smart Wordlist Selection**: Automatically chooses optimal wordlists for each hash type
-- **Wordlist Deduplication**: Removes duplicate passwords to reduce processing time
-- **Multi-Threading**: Optimized CPU core utilization for maximum performance
-- **Rule-Based Attacks**: Multiply password coverage without increasing wordlist size
-- **Hash Validation**: Prevents wasted time on malformed hashes
-
-### **Memory Optimizations**  
-- **Efficient Wordlist Handling**: Streaming processing for large wordlists
-- **Smart Caching**: Intelligent caching of frequently used data
-- **Resource Management**: Automatic cleanup and memory management
-
-### **Attack Strategy Optimization**
-- **Hybrid Attacks**: Combine multiple attack methods for better success rates
-- **Progressive Complexity**: Start with simple attacks before complex ones
-- **Resume Capability**: Never lose progress on long-running sessions
 
 ## ⚠️ Legal Disclaimer
 
