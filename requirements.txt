@@ -1,12 +1,57 @@
-# JSHash - Hash Cracking Tool Requirements
+# JSHash - Advanced Hash Cracking Tool
+# Requirements file for Python dependencies
 # Install with: pip install -r requirements.txt
 
-# Core dependencies
+# Core dependencies (required)
 colorama>=0.4.4
 hashid>=3.1.4
 
 # Optional dependencies for enhanced functionality
-# Uncomment if needed for specific use cases
+# Uncomment if you want additional features:
+
+# For better hash analysis and validation (optional)
+# regex>=2021.4.4
+
+# For advanced wordlist processing (optional)  
+# nltk>=3.6
+
+# System requirements (install via package manager):
+# - john (John the Ripper) - REQUIRED for cracking
+# - hashcat (optional, for GPU acceleration)
+# - python3-dev (for some optional packages)
+
+# =============================================================================
+# INSTALLATION GUIDE
+# =============================================================================
+
+# Python packages:
+# pip install -r requirements.txt
+# 
+# or manually:
+# pip install colorama hashid
+
+# System packages (Ubuntu/Debian):
+# sudo apt update
+# sudo apt install john hashcat python3-pip python3-dev
+
+# System packages (Arch/Manjaro):
+# sudo pacman -S john hashcat python-pip
+
+# System packages (Fedora/CentOS):
+# sudo dnf install john hashcat python3-pip python3-devel
+
+# System packages (Kali Linux):
+# sudo apt update
+# sudo apt install john hashcat
+
+# =============================================================================
+# USAGE NOTES
+# =============================================================================
+# - colorama: Required for colored terminal output
+# - hashid: Required for intelligent hash detection
+# - john: System tool required for password cracking
+# - hashcat: Optional but recommended for GPU acceleration
+# =============================================================================
 
 # For advanced hash analysis
 # pycryptodome>=3.15.0
