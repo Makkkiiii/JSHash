@@ -371,6 +371,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 **Made with ❤️ for the cybersecurity community**
 
-[⭐ Star this repo](https://github.com/yourusername/jshash) | [🐛 Report Bug](https://github.com/yourusername/jshash/issues) | [💡 Request Feature](https://github.com/yourusername/jshash/issues)
 
 </div>
