@@ -53,7 +53,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/jshash.git
+git clone https://github.com/Makkkiiii/JSHash.git
 cd jshash
 
 # Install dependencies
@@ -90,7 +90,7 @@ Crack hashes from existing hash files.
 ## 📊 Sample Output
 
 <details>
-<summary>🎬 <strong>Click to see animated demo</strong></summary>
+<summary>🎬 <strong>Click to see demo</strong></summary>
 
 ```
 🔓 Hash Cracker | Supports ZIP/PDF/7z/Office + John/Hashcat + Shadow Cracking
