@@ -10,16 +10,60 @@ from hashid import HashID
 init(autoreset=True)
 logging.basicConfig(filename='crack.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Office document formats that use the same tool
+OFFICE_FORMATS = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
+KEEPASS_FORMATS = ['kdbx', 'keepassxc']
+TRUECRYPT_FORMATS = ['tc', 'truecrypt']
+
 TOOL_MAP = {
+    # Archive formats
     'zip': 'zip2john',
     '7z': '7z2john.pl',
     'rar': 'rar2john',
+    
+    # Document formats
     'pdf': 'pdf2john.pl',
-    'doc': 'office2john.py',
-    'docx': 'office2john.py',
-    'xls': 'office2john.py',
-    'xlsx': 'office2john.py',
+    
+    # Database/Password manager formats
+    'gpg': 'gpg2john',
+    
+    # Disk encryption
+    'dmg': 'dmg2john',
+    'luks': 'luks2john',
+    'bitlocker': 'bitlocker2john',
+    
+    # Network/Protocol formats
+    'pcap': 'wpapcap2john',
+    'cap': 'wpapcap2john',
+    'hccap': 'hccap2john',
+    'hccapx': 'hccapx2john',
+    
+    # SSH/Key formats
+    'ssh': 'ssh2john.py',
+    'pem': 'ssh2john.py',
+    'ppk': 'putty2john',
+    
+    # Other formats
+    'psafe3': 'pwsafe2john',
+    'wallet': 'bitcoin2john.py',
+    'itunes': 'itunes_backup2john.py',
+    'mozilla': 'mozilla2john.py',
+    'keychain': 'keychain2john',
+    'pgp': 'gpg2john',
+    'asc': 'gpg2john',
 }
+
+# Add office formats dynamically
+for fmt in OFFICE_FORMATS:
+    TOOL_MAP[fmt] = 'office2john.py'
+
+# Add KeePass formats dynamically  
+for fmt in KEEPASS_FORMATS:
+    TOOL_MAP[fmt] = 'keepass2john'
+
+# Add TrueCrypt formats dynamically
+for fmt in TRUECRYPT_FORMATS:
+    TOOL_MAP[fmt] = 'truecrypt2john.py'
 
 WORDLISTS = {
     'rockyou.txt': '/usr/share/wordlists/rockyou.txt',
@@ -44,6 +88,31 @@ HASH_FORMATS = {
 
 def colored(msg, color=Fore.CYAN):
     return f"{color}{msg}{Style.RESET_ALL}"
+
+def display_supported_formats():
+    print()
+    print(colored("📋 Supported File Formats and Tools:", Fore.CYAN))
+    print(colored("=" * 50, Fore.CYAN))
+    
+    # Group formats by category for better display
+    categories = {
+        "Archive Formats": ["zip", "7z", "rar"],
+        "Document Formats": ["pdf"] + OFFICE_FORMATS,
+        "Database/Password Managers": ["gpg", "pgp", "asc"] + KEEPASS_FORMATS,
+        "Disk Encryption": ["dmg", "luks", "bitlocker"] + TRUECRYPT_FORMATS,
+        "Network/Protocol": ["pcap", "cap", "hccap", "hccapx"],
+        "SSH/Key Formats": ["ssh", "pem", "ppk"],
+        "Other Formats": ["psafe3", "wallet", "itunes", "mozilla", "keychain"]
+    }
+    
+    for category, formats in categories.items():
+        print(colored(f"\n{category}:", Fore.YELLOW))
+        for fmt in formats:
+            tool = TOOL_MAP.get(fmt, "Unknown")
+            print(f"  • {fmt} → {tool}")
+    
+    print(colored("\n" + "=" * 50, Fore.CYAN))
+    print(colored("Example usage: secret.zip, document.pdf, database.kdbx, etc.\n", Fore.GREEN))
 
 def prompt_file(msg):
     while True:
@@ -71,7 +140,15 @@ def extract_hash(file_path, output_file):
     tool = get_hash_tool(file_path)
     if not tool:
         print()
-        print(colored("[!] Unsupported file type. Supported: zip, 7z, rar, pdf, doc, docx, xls, xlsx\n", Fore.RED))
+        print(colored("[!] Unsupported file type.", Fore.RED))
+        print(colored("Would you like to see all supported formats? (y/n): ", Fore.CYAN), end="")
+        show_formats = input().strip().lower()
+        if show_formats in ['y', 'yes']:
+            display_supported_formats()
+        else:
+            # Create a quick list of supported extensions
+            supported_exts = sorted(list(TOOL_MAP.keys()))
+            print(colored(f"Supported extensions: {', '.join(supported_exts[:15])}{'...' if len(supported_exts) > 15 else ''}\n", Fore.YELLOW))
         return False
 
     print()
@@ -90,7 +167,7 @@ def extract_hash(file_path, output_file):
 
 def detect_hash_type(hash_file):
     print()
-    print(colored("[?] Hash format detection options:", Fore.CYAN))
+    print(colored("[#] Hash format detection options: (NOT FULLY ACCURATE + USE IF NECESSARY)", Fore.CYAN))
     print("1) Auto-detect hash format")
     print("2) Skip detection and input format manually")
     print("3) Skip detection (use tool defaults)")
@@ -333,14 +410,20 @@ def main():
     print("Choose mode:")
     print("1) Crack from archive/file (extract hash)")
     print("2) Crack from /etc/shadow")
-    print("3) Crack directly from a hash file\n")
+    print("3) Crack directly from a hash file")
+    print("4) View supported file formats\n")
 
     mode = ''
-    while mode not in ['1', '2', '3']:
-        mode = input(colored("Choose option [1/2/3]: ")).strip()
+    while mode not in ['1', '2', '3', '4']:
+        mode = input(colored("Choose option [1/2/3/4]: ")).strip()
         print()
-        if mode not in ['1', '2', '3']:
-            print(colored("[!] Invalid choice. Enter 1, 2 or 3.\n", Fore.RED))
+        if mode not in ['1', '2', '3', '4']:
+            print(colored("[!] Invalid choice. Enter 1, 2, 3, or 4.\n", Fore.RED))
+    
+    if mode == '4':
+        display_supported_formats()
+        print(colored("Returning to main menu...\n", Fore.CYAN))
+        return main()  # Return to main menu after showing formats
     
     if mode == '2':
         print(colored("Shadow cracking options:\n1) Use shadow + passwd files (unshadow)\n2) Extract hashes from shadow file only\n", Fore.CYAN))
