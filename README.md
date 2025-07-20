@@ -227,16 +227,6 @@ Both John the Ripper and Hashcat support resuming interrupted sessions automatic
 - Security assessment of password policies
 - Hash cracking competitions
 
-### 🛡️ **Digital Forensics**
-- Evidence file password recovery
-- System compromise investigation
-- Malware analysis support
-
-### 🎓 **Educational**
-- Learning hash cracking techniques
-- Understanding password security
-- Cybersecurity training
-
 ## ⚠️ Legal Disclaimer
 
 This tool is intended for **educational purposes** and **authorized penetration testing** only. Users are responsible for complying with all applicable laws and regulations. The authors are not responsible for any misuse of this tool.
@@ -245,9 +235,6 @@ This tool is intended for **educational purposes** and **authorized penetration 
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
