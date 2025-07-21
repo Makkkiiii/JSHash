@@ -73,7 +73,7 @@ WORDLISTS = {
     'xato-net-10-million.txt': '/usr/share/seclists/Passwords/xato-net-10-million-passwords-100000.txt',
     'scraped-JWT-secrets.txt': '/usr/share/seclists/Passwords/scraped-JWT-secrets.txt',
     'common-passwords.txt': '/usr/share/seclists/Passwords/Common-Credentials/10-million-password-list-top-1000000.txt',
-    'darkweb2017-top10000.txt': '/usr/share/seclists/Passwords/darkweb2017-top10000.txt',
+    'darkweb2017-top10000.txt': '/usr/share/seclists/Passwords/darkweb2017_top10000.txt',
 }
 
 # John the Ripper rule files
